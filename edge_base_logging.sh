@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MODEL_LIST=("t5-small" "t5-base" "t5-large")
+MODEL_LIST=("t5-small" "t5-base")
 
 for MODEL_NAME in "${MODEL_LIST[@]}";
 do
@@ -20,7 +20,7 @@ do
 	tegrastats --interval 1000 > "$LOG_FILE_TGS" &
 	TEGRASTATS_PID=$!
 
-	python t5-latency.py --model_name "$MODEL_NAME" --device "cuda" --runs 500 | tee "$LOG_FILE_TMN"
+	python t5-samsum.py --model_name "$MODEL_NAME" --device "cuda" --runs 500 | tee "$LOG_FILE_TMN"
 	TEGRA_PID=$!
 	kill $TEGRASTATS_PID
 

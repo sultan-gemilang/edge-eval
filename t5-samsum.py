@@ -6,10 +6,19 @@ from tqdm import tqdm
 import time
 import numpy as np
 import argparse
+from datetime import datetime
+import random
 
 from models.modeling_t5 import NashT5ForConditionalGeneration
 from utils.utils import *
 from utils.nash_utils import *
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)  
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def tokenize_input(tokenizer, input_text, device):
     inputs = tokenizer(input_text, return_tensors="pt", truncation=True, padding="longest", max_length=512)
@@ -17,24 +26,7 @@ def tokenize_input(tokenizer, input_text, device):
     attention_mask = inputs.attention_mask.to(device)
     return input_ids, attention_mask
 
-def main():
-    parser = argparse.ArgumentParser(description="T5 SAMSum Evaluation with Latency Metrics")
-    parser.add_argument("--model_name", type=str, default="t5-base", help="Model name or path")
-    parser.add_argument("--max_length", type=int, default=64, help="Maximum number of tokens to generate for summary")
-    parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on (cuda or cpu)")
-    parser.add_argument("--max_samples", type=int, default=None, help="Max number of samples to evaluate (default: all)")
-    parser.add_argument("--warmup", type=int, default=5, help="Number of warmup runs")
-    args = parser.parse_args()
-
-    # Load SAMSum dataset
-    dataset = load_dataset("knkarthick/samsum")
-    test_data = dataset["test"]
-    if args.max_samples is not None:
-        test_data = test_data.select(range(args.max_samples))
-
-    # Load T5 model and tokenizer
-    model_name = args.model_name
-
+def get_model_and_tokenizer(model_name, device):
     if "nash" in model_name.lower():
         zs_path = '/'.join(model_name.split('/')[:-2])
         zs = load_zs(zs_path)
@@ -47,8 +39,35 @@ def main():
     model.eval()
 
     tokenizer = T5Tokenizer.from_pretrained(model_name)
-    device = torch.device(args.device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
+    device = torch.device(device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
     model.to(device)
+    
+    return model, tokenizer
+
+def main():
+    parser = argparse.ArgumentParser(description="T5 SAMSum Evaluation with Latency Metrics")
+    parser.add_argument("--model_name", type=str, default="t5-base", help="Model name or path")
+    parser.add_argument("--max_length", type=int, default=64, help="Maximum number of tokens to generate for summary")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on (cuda or cpu)")
+    parser.add_argument("--max_samples", type=int, default=None, help="Max number of samples to evaluate (default: all)")
+    parser.add_argument("--warmup", type=int, default=5, help="Number of warmup runs")
+    args = parser.parse_args()
+    
+    set_seed(42)  # Set random seed for reproducibility
+
+    # Load SAMSum dataset
+    dataset = load_dataset("knkarthick/samsum")
+    test_data = dataset["test"]
+    if args.max_samples is not None:
+        test_data = test_data.select(range(args.max_samples))
+
+    # Load T5 model and tokenizer
+    model_name = args.model_name
+    device = args.device
+
+    model_start_time = time.perf_counter()
+    model, tokenizer = get_model_and_tokenizer(model_name, device)
+    model_end_time = time.perf_counter()
 
     # Load ROUGE metric
     rouge = evaluate.load("rouge")
@@ -66,7 +85,6 @@ def main():
     max_length = args.max_length
     num_samples = len(test_data)
 
-    # -------- Warmup --------
     print(f"------ Warmup ({args.warmup} runs) ------")
     warmup_dialogue = test_data[0]["dialogue"]
     warmup_input_text = "summarize: " + warmup_dialogue
@@ -76,7 +94,9 @@ def main():
             _ = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
             _ = model.generate(input_ids, attention_mask=attention_mask, max_length=max_length)
 
-    # -------- TTFT Evaluation --------
+
+    print("-------- TTFT Evaluation --------")
+    ttft_time = datetime.now()
     for idx, example in enumerate(tqdm(test_data, desc="Evaluating TTFT")):
         dialogue = example["dialogue"]
         summary = example["summary"]
@@ -98,7 +118,8 @@ def main():
             print("Reference Summary:\n", summary)
             print(f"TTFT Time: {ttft:.4f} seconds")
     
-    # -------- TGT & TPOT Evaluation --------
+    print("-------- TGT & TPOT Evaluation --------")
+    tgt_tpot_time = datetime.now()
     for idx, example in enumerate(tqdm(test_data, desc="Evaluating TGT & TPOT")):
         # TGT & TPOT: Full summary generation
         
@@ -151,6 +172,14 @@ def main():
     print(f"avg TPOT \t: {np.mean(tpot_list) * 1000:.2f} ms")
     print(f"avg TPS \t: {np.mean(tps_list):.2f} tokens/sec")
     print(f"avg gen_len \t: {np.mean(gen_list):.2f} tokens")
+    
+    print("\n------ Time Results ------")
+    print(f"Model loading time: {model_end_time - model_start_time:.2f} seconds")
+    
+    print(f"Model loading started at: {model_start_time}")
+    print(f"Model loading ended at: {model_end_time}")
+    print(f"TTFT measurement started at: {ttft_time}")
+    print(f"TGT & TPOT measurement started at: {tgt_tpot_time}")
 
 if __name__ == "__main__":
     main()

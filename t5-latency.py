@@ -31,15 +31,14 @@ def get_model_and_tokenizer(model_name, device):
         model.load_state_dict(trained_weight)
     elif "t5-small" in model_name.lower():
         model = T5ForConditionalGeneration.from_pretrained("t5-small")
-        tokenizer = T5Tokenizer.from_pretrained("t5-small")
     elif "t5-base" in model_name.lower():
         model = T5ForConditionalGeneration.from_pretrained("t5-base")
-        tokenizer = T5Tokenizer.from_pretrained("t5-base")
     elif "t5-large" in model_name.lower():
         model = T5ForConditionalGeneration.from_pretrained("t5-large")
-        tokenizer = T5Tokenizer.from_pretrained("t5-large")
     else:
         raise ValueError("Unsupported model type. Please use a T5 model or a NashT5 model.")
+    
+    tokenizer = T5Tokenizer.from_pretrained(model_name)
 
     model.to(device)
     model.eval()

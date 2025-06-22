@@ -27,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     # Load SAMSum dataset
-    dataset = load_dataset("samsum")
+    dataset = load_dataset("knkarthick/samsum")
     test_data = dataset["test"]
     if args.max_samples is not None:
         test_data = test_data.select(range(args.max_samples))

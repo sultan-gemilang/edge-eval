@@ -103,11 +103,13 @@ def main():
 
         # Prepare input
         input_text = "summarize: " + dialogue
+
+        #TTFT starts
+        start_ttft = time.perf_counter()
         input_ids, attention_mask = tokenize_input(tokenizer, input_text, device)
 
         # TTFT: Time to First Token
         with torch.no_grad():
-            start_ttft = time.perf_counter()
             _ = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
             end_ttft = time.perf_counter()
         ttft = end_ttft - start_ttft

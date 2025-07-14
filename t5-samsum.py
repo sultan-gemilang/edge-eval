@@ -8,6 +8,8 @@ import numpy as np
 import argparse
 from datetime import datetime
 import random
+import csv
+import pandas as pd
 
 from models.modeling_t5 import NashT5ForConditionalGeneration
 from utils.utils import *
@@ -46,7 +48,7 @@ def get_model_and_tokenizer(model_name, device):
 
 def main():
     parser = argparse.ArgumentParser(description="T5 SAMSum Evaluation with Latency Metrics")
-    parser.add_argument("--model_name", type=str, default="t5-base", help="Model name or path")
+    parser.add_argument("--model_name", type=str, default="./nash_out/t5-small/SAMSUM/NASH/SAMSUM_nash_unif_0.5_3/int/FT/best", help="Model name or path")
     parser.add_argument("--max_length", type=int, default=64, help="Maximum number of tokens to generate for summary")
     parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on (cuda or cpu)")
     parser.add_argument("--max_samples", type=int, default=None, help="Max number of samples to evaluate (default: all)")
@@ -103,11 +105,14 @@ def main():
 
         # Prepare input
         input_text = "summarize: " + dialogue
+        
+        # Start measuring TTFT
+        start_ttft = time.perf_counter()
         input_ids, attention_mask = tokenize_input(tokenizer, input_text, device)
 
         # TTFT: Time to First Token
         with torch.no_grad():
-            start_ttft = time.perf_counter()
+            
             _ = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
             end_ttft = time.perf_counter()
         ttft = end_ttft - start_ttft
@@ -168,11 +173,38 @@ def main():
     print(f"Samples evaluated: {num_samples}")
     print(f"Warmup runs: {args.warmup}")
     print(f"avg TTFT \t: {np.mean(ttft_list) * 1000:.2f} ms")
+    print(f"std TTFT \t: {np.std(ttft_list) * 1000:.2f} ms")
     print(f"avg TGT \t: {np.mean(tgt_list) * 1000:.2f} ms")
+    print(f"std TGT \t: {np.std(tgt_list) * 1000:.2f} ms")
     print(f"avg TPOT \t: {np.mean(tpot_list) * 1000:.2f} ms")
+    print(f"std TPOT \t: {np.std(tpot_list) * 1000:.2f} ms")
     print(f"avg TPS \t: {np.mean(tps_list):.2f} tokens/sec")
+    print(f"std TPS \t: {np.std(tps_list):.2f} tokens/sec")
     print(f"avg gen_len \t: {np.mean(gen_list):.2f} tokens")
+    print(f"std gen_len \t: {np.std(gen_list):.2f} tokens")
     
+    # Save latency metrics to CSV
+    latency_df = pd.DataFrame({
+        "TTFT (s)": ttft_list,
+        "TGT (s)": tgt_list,
+        "TPOT (s)": tpot_list,
+        "TPS": tps_list,
+        "gen_len": gen_list
+    })
+    
+    latency_metrics_dir = f"{ttft_time}_latency_metrics.csv"
+    rouge_results_dir = f"{ttft_time}_rouge_results.csv"
+
+    latency_df.to_csv(latency_metrics_dir, index=False)
+
+    # Save ROUGE results to CSV
+    rouge_df = pd.DataFrame([results])
+    rouge_df.to_csv(rouge_results_dir, index=False)
+
+    print("\nCSV files saved:")
+    print(f" - {latency_metrics_dir}")
+    print(f" - {rouge_results_dir}")
+
     print("\n------ Time Results ------")
     print(f"Model loading time: {model_end_time - model_start_time:.2f} seconds")
     

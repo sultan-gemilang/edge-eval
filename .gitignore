@@ -1,5 +1,12 @@
 logs
+new_logs
 nash_out
 out-test
 train/models
 test
+train
+notebooks/plot skripsi
+notebooks/plot
+t5-params.ipynb
+t5-squad.py
+distilled_models

@@ -6,7 +6,7 @@ for MODEL_NAME in "${MODEL_LIST[@]}";
 do
 	
 	START_TIME=$(date +"%Y%m%d_%H%M%S")
-	LOG_DIR="logs/edge/${MODEL_NAME}"
+	LOG_DIR="logs/edge/base"
 	LOG_FILE_TGS="${LOG_DIR}/${MODEL_NAME}_${START_TIME}_tegrastats.log"
 	LOG_FILE_TMN="${LOG_DIR}/${MODEL_NAME}_${START_TIME}_terminal.log"
 
@@ -24,5 +24,5 @@ do
 	TEGRA_PID=$!
 	kill $TEGRASTATS_PID
 
-	echo "Tegra stats logged to $LOG_FILE"
+	echo "Tegra stats logged to $LOG_FILE_TGS"
 done

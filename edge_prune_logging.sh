@@ -21,7 +21,7 @@ do
 	fi
 
 	START_TIME=$(date +"%Y%m%d_%H%M%S")
-	LOG_DIR="logs/edge/${MODEL_TYPE}"
+	LOG_DIR="logs/edge/pruneft"
 	LOG_FILE_TGS="${LOG_DIR}/${MODEL_NAME}_${START_TIME}_tegrastats.log"
 	LOG_FILE_TMN="${LOG_DIR}/${MODEL_NAME}_${START_TIME}_terminal.log"
 

@@ -8,6 +8,8 @@ import numpy as np
 import argparse
 from datetime import datetime
 import random
+import csv
+import pandas as pd
 
 from models.modeling_t5 import NashT5ForConditionalGeneration
 from utils.utils import *
@@ -170,11 +172,37 @@ def main():
     print(f"Samples evaluated: {num_samples}")
     print(f"Warmup runs: {args.warmup}")
     print(f"avg TTFT \t: {np.mean(ttft_list) * 1000:.2f} ms")
+    print(f"std TTFT \t: {np.std(ttft_list) * 1000:.2f} ms")
     print(f"avg TGT \t: {np.mean(tgt_list) * 1000:.2f} ms")
+    print(f"std TGT \t: {np.std(tgt_list) * 1000:.2f} ms")
     print(f"avg TPOT \t: {np.mean(tpot_list) * 1000:.2f} ms")
+    print(f"std TPOT \t: {np.std(tpot_list) * 1000:.2f} ms")
     print(f"avg TPS \t: {np.mean(tps_list):.2f} tokens/sec")
+    print(f"std TPS \t: {np.std(tps_list):.2f} tokens/sec")
     print(f"avg gen_len \t: {np.mean(gen_list):.2f} tokens")
-    
+    print(f"std gen_len \t: {np.std(gen_list):.2f} tokens")
+
+    latency_dir = f"{ttft_time}_{model_name}_latency_metrics.csv"
+    rouge_dir = f"{ttft_time}_{model_name}_rouge_results.csv"
+
+    # Save latency metrics to CSV
+    latency_df = pd.DataFrame({
+        "TTFT (s)": ttft_list,
+        "TGT (s)": tgt_list,
+        "TPOT (s)": tpot_list,
+        "TPS": tps_list,
+        "gen_len": gen_list
+    })
+    latency_df.to_csv(latency_dir, index=False)
+
+    # Save ROUGE results to CSV
+    rouge_df = pd.DataFrame([results])
+    rouge_df.to_csv(rouge_dir, index=False)
+
+    print("\nCSV files saved:")
+    print(f" - {latency_dir}")
+    print(f" - {rouge_dir}")
+
     print("\n------ Time Results ------")
     print(f"Model loading time: {model_end_time - model_start_time:.2f} seconds")
     

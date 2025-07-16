@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda", help="Device to run the model on (cuda or cpu)")
     parser.add_argument("--max_samples", type=int, default=None, help="Max number of samples to evaluate (default: all)")
     parser.add_argument("--warmup", type=int, default=5, help="Number of warmup runs")
+    parser.add_argument("--is_broken", type=bool, default=False, help="Whether the model is broken or not (Used for FT NASH model, default: False)")
     args = parser.parse_args()
     
     set_seed(42)  # Set random seed for reproducibility
@@ -111,9 +112,17 @@ def main():
         input_ids, attention_mask = tokenize_input(tokenizer, input_text, device)
 
         # TTFT: Time to First Token
-        with torch.no_grad():
-            _ = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
-            end_ttft = time.perf_counter()
+        if args.is_broken:
+            with torch.no_grad():
+                generated_ids = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
+                generated_ids = generated_ids[0]  # Fix for broken model, double nested list
+        else:
+            with torch.no_grad():
+                generated_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=max_length)
+        
+        _ = tokenizer.decode(generated_ids[0], skip_special_tokens=True)  # Decode to get the first token
+        end_ttft = time.perf_counter()
+        
         ttft = end_ttft - start_ttft
         ttft_list.append(ttft)
         
@@ -133,12 +142,21 @@ def main():
         start_tgt = time.perf_counter()
         input_ids, attention_mask = tokenize_input(tokenizer, input_text, device)
         
-        with torch.no_grad():
-            start_tpot = time.perf_counter()
-            summary_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=max_length)
-            end_tpot = time.perf_counter()
-            generated_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-            end_tgt = time.perf_counter()
+        if args.is_broken:
+            with torch.no_grad():
+                start_tpot = time.perf_counter()
+                summary_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=max_length)
+                end_tpot = time.perf_counter()
+                summary_ids = summary_ids[0] # Fix for broken model, double nested list
+                generated_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+                end_tgt = time.perf_counter()
+        else:
+            with torch.no_grad():
+                start_tpot = time.perf_counter()
+                summary_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=max_length)
+                end_tpot = time.perf_counter()
+                generated_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+                end_tgt = time.perf_counter()
 
         gen_token_len = summary_ids.shape[1]
         tpot_time = end_tpot - start_tpot
@@ -182,8 +200,8 @@ def main():
     print(f"avg gen_len \t: {np.mean(gen_list):.2f} tokens")
     print(f"std gen_len \t: {np.std(gen_list):.2f} tokens")
 
-    latency_dir = f"{ttft_time}_{model_name}_latency_metrics.csv"
-    rouge_dir = f"{ttft_time}_{model_name}_rouge_results.csv"
+    latency_dir = f"./logs/{ttft_time}_latency_metrics.csv"
+    rouge_dir = f"./logs/{ttft_time}_rouge_results.csv"
 
     # Save latency metrics to CSV
     latency_df = pd.DataFrame({

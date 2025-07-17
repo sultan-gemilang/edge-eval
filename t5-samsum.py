@@ -118,7 +118,7 @@ def main():
                 generated_ids = generated_ids[0]  # Fix for broken model, double nested list
         else:
             with torch.no_grad():
-                generated_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=1)
+                generated_ids = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=1)
         
         _ = tokenizer.decode(generated_ids[0], skip_special_tokens=True)  # Decode to get the first token
         end_ttft = time.perf_counter()

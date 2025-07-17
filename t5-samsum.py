@@ -222,6 +222,7 @@ def main():
     print(f" - {rouge_dir}")
 
     print("\n------ Time Results ------")
+    print(f"Model name: {model_name}")
     print(f"Model loading time: {model_end_time - model_start_time:.2f} seconds")
     
     print(f"Model loading started at: {model_start_time}")
